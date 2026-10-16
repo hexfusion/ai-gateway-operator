@@ -62,6 +62,18 @@ type AIGridComponent struct {
 	// +kubebuilder:validation:Enum=Managed;Removed
 	// +kubebuilder:default=Removed
 	ManagementState string `json:"managementState,omitempty"`
+
+	// GridEnrollment deploys the enrollment service when AI Grid is Managed.
+	// Omitted or disabled leaves enrollment uninstalled.
+	// +optional
+	GridEnrollment *GridEnrollmentConfig `json:"grid-enrollment,omitempty"`
+}
+
+// GridEnrollmentConfig controls installation of the Grid enrollment service.
+type GridEnrollmentConfig struct {
+	// Enabled explicitly requests enrollment and its certificate bootstrap.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // AIGatewayStatus defines the observed state of AIGateway.

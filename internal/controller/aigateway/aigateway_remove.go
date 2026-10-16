@@ -150,6 +150,13 @@ func (m *Module) maasTeardownCompleted(ctx context.Context, cli client.Client) (
 // maas-controller Deployment's own annotation - so the default predicate alone would
 // never consider either bundle's resources eligible for collection.
 func (m *Module) maasAwareGCPredicate(rr *odhtypes.ReconciliationRequest, obj unstructured.Unstructured) (bool, error) {
+	// Keep enrollment trust and records across disable/re-enable. Namespace and
+	// PVC types are deliberately not owned, so deleting AIGateway also retains them.
+	if obj.GetKind() == "Namespace" && obj.GetName() == enrollmentNamespace ||
+		obj.GetNamespace() == enrollmentNamespace && (obj.GetKind() == "PersistentVolumeClaim" || obj.GetKind() == "Secret") {
+		return false, nil
+	}
+
 	// Never GC grid CRDs: deleting one cascades to every grid custom resource.
 	if obj.GroupVersionKind() == gvk.CustomResourceDefinition && strings.HasSuffix(obj.GetName(), aiGridCRDSuffix) {
 		return false, nil

@@ -36,6 +36,8 @@ copy_component_manifests() {
         # Helm values generate these manifests upstream; Kustomize does not consume them.
         rm -f "${dst}/overlays/openshift/values.yaml"
         ensure_kustomization "${dst}/crds"
+    elif [[ "${component_name}" == "gridenrollment" ]]; then
+        cp -a "${src}/Chart.yaml" "${src}/values.yaml" "${src}/values.schema.json" "${src}/templates" "${dst}/"
     else
         cp -a "${src}/." "${dst}/"
         ensure_kustomization "${dst}"
@@ -104,6 +106,7 @@ declare -A COMPONENTS=(
     [batchgateway]="llm-d-batch-gateway-operator|config|1fdf57bc2bc5b6ab3cb3ebbc93d04d54e2531059"
     [maascontroller]="models-as-a-service|deployment/base/maas-controller|9eba6984b7fbf422da5877c3b966f5eeb6b144e8|9eba6984b7fbf422da5877c3b966f5eeb6b144e8"
     [aigatewaycontroller]="ai-gateway-controller|config/self|46caf7ee42c74e49ddbb2f1037895c0a89251a39|46caf7ee42c74e49ddbb2f1037895c0a89251a39"
+    [gridenrollment]="praxis-ai-grid-operator|charts/grid-enrollment|270fa9255f71c90058c049e8f7f840d2c242f73a|270fa9255f71c90058c049e8f7f840d2c242f73a"
     [aigrid]="praxis-ai-grid-operator|deploy|270fa9255f71c90058c049e8f7f840d2c242f73a|270fa9255f71c90058c049e8f7f840d2c242f73a"
 )
 

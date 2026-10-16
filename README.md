@@ -19,6 +19,8 @@ A Kubernetes operator that manages AI Gateway components for [Open Data Hub](htt
 - **[Architecture](docs/architecture.md)** - How ai-gateway-operator manages sub-components
 - **[Contributing](CONTRIBUTING.md)** - Development setup, CI, and test ownership boundaries (AIGO / AIGC / MaaS)
 
+- **[Enabling Grid enrollment](docs/enabling-grid-enrollment.md)** - Optional enrollment service and certificate bootstrap
+
 ## Updating Component Manifests
 
 This operator vendors manifests from sub-components into `config/manifests/`. These files are checked into the repository because the container build expects them in the source tree (`COPY config/manifests/` in the Dockerfile).

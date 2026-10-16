@@ -35,6 +35,7 @@ rules:
   - ""
   resources:
   - namespaces
+  - persistentvolumeclaims
   verbs:
   - create
   - get
@@ -59,6 +60,18 @@ rules:
   - list
   - patch
   - watch
+- apiGroups:
+  - ""
+  resourceNames:
+  - enrollment-serving-tls
+  - grid-ca-bundle
+  - grid-ca-key
+  - grid-db-serving-tls
+  - grid-enrollment-db
+  resources:
+  - secrets
+  verbs:
+  - update
 - apiGroups:
   - ""
   resourceNames:
@@ -203,6 +216,7 @@ rules:
   - batch
   resources:
   - cronjobs
+  - jobs
   verbs:
   - create
   - delete
@@ -210,14 +224,6 @@ rules:
   - list
   - patch
   - watch
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - create
-  - delete
-  - get
 - apiGroups:
   - batch.llm-d.ai
   resources:
@@ -395,6 +401,20 @@ rules:
   verbs:
   - get
   - patch
+- apiGroups:
+  - grid.praxis.fast
+  resources:
+  - enrollments
+  verbs:
+  - delete
+  - get
+- apiGroups:
+  - grid.praxis.fast
+  resources:
+  - enrollmenttokens
+  verbs:
+  - create
+  - delete
 - apiGroups:
   - grid.praxis.fast
   resources:

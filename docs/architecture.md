@@ -56,6 +56,10 @@ The operator's RBAC escalation rules in `config/rbac/role.yaml` must cover permi
 
 When `spec.aiGrid.managementState` is `Managed`, ai-gateway-operator applies the four AI Grid CRDs from `config/manifests/aigrid/crds/` (vendored from `praxis-ai-grid-operator` `deploy/crds`) and then the grid operator from `config/manifests/aigrid/overlays/openshift/` (vendored from `deploy/overlays/openshift`, the OpenShift flavor of the operator's generated platform base). The operator image comes through `params.env` from `RELATED_IMAGE_ODH_PRAXIS_AI_GRID_OPERATOR_IMAGE`, and the render places every object in the applications namespace. `AIGridReady` is True once the CRDs are Established and the `grid-operator` Deployment has a ready replica. Setting `Removed` garbage-collects the operator but never deletes the CRDs, since that would delete every grid custom resource.
 
+The optional `spec.aiGrid.grid-enrollment.enabled` field also installs enrollment in
+`ai-grid-enrollment`. Omission preserves operator-only behavior. See
+[enrollment installation and lifecycle](enabling-grid-enrollment.md).
+
 Both trees share one pinned grid source revision and retain its upstream directory layout. Vendoring omits the OpenShift `values.yaml`: upstream uses it to generate the YAML, but the runtime Kustomize overlay consumes only the generated manifests and `params.env`.
 
 The grid operator's SWIM and signals Services are `LoadBalancer`, which the operator requires for the addresses it advertises to peer sites. The site's own settings (its name, peer trust, signal transport, seeds and enrollment) are not set by this operator yet.

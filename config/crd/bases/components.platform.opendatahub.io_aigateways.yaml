@@ -55,6 +55,16 @@ spec:
               aiGrid:
                 description: AIGrid controls the AI Grid sub-component.
                 properties:
+                  grid-enrollment:
+                    description: |-
+                      GridEnrollment deploys the enrollment service when AI Grid is Managed.
+                      Omitted or disabled leaves enrollment uninstalled.
+                    properties:
+                      enabled:
+                        description: Enabled explicitly requests enrollment and its
+                          certificate bootstrap.
+                        type: boolean
+                    type: object
                   managementState:
                     default: Removed
                     description: |-

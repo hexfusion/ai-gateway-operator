@@ -22,6 +22,7 @@ import (
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -88,6 +89,13 @@ import (
 
 // AI Grid CRDs. No delete: they are kept when aiGrid is Removed.
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,resourceNames=gridnetworks.grid.praxis.fast;gridsites.grid.praxis.fast;inferenceproviders.grid.praxis.fast;agenttoolproviders.grid.praxis.fast,verbs=get;update;patch
+
+// Enrollment bootstrap and retained database storage.
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;patch;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;patch;update
+// +kubebuilder:rbac:groups="",resources=secrets,resourceNames=grid-ca-key;grid-ca-bundle;enrollment-serving-tls;grid-db-serving-tls;grid-enrollment-db,verbs=update
+// +kubebuilder:rbac:groups=grid.praxis.fast,resources=enrollmenttokens,verbs=create;delete
+// +kubebuilder:rbac:groups=grid.praxis.fast,resources=enrollments,verbs=get;delete
 
 // AI Grid operator - permissions to deploy its vendored manifests
 // (config/manifests/aigrid/overlays/openshift, fetched by make get-manifests) and every rule
@@ -169,6 +177,7 @@ func NewReconciler(
 
 	r, err := reconciler.ReconcilerFor(mgr, &componentApi.AIGateway{}).
 		Owns(&corev1.ConfigMap{}).
+		Owns(&batchv1.Job{}).
 		Owns(&rbacv1.ClusterRoleBinding{}).
 		Owns(&rbacv1.ClusterRole{}).
 		Owns(&rbacv1.RoleBinding{}).
@@ -227,6 +236,7 @@ func NewReconciler(
 			kustomize.WithLabel(labels.ODH.Component(componentName), labels.True),
 			kustomize.WithLabel(labels.K8SCommon.PartOf, componentName),
 		)).
+		WithAction(m.renderEnrollment).
 		WithAction(m.annotateResource).
 		WithAction(m.migrateSelector).
 		WithAction(deploy.NewAction(
@@ -235,6 +245,7 @@ func NewReconciler(
 		)).
 		WithAction(deployments.NewAction()).
 		WithAction(m.reportSubModuleStatus).
+		WithAction(m.reportEnrollmentStatus).
 		WithAction(m.overWriteCondition).
 		WithAction(m.reportStatus).
 		WithAction(gc.NewAction(
@@ -245,7 +256,6 @@ func NewReconciler(
 			status.ConditionDeploymentsAvailable,
 		).
 		Build(ctx)
-
 	if err != nil {
 		return err
 	}

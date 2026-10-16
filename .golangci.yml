@@ -1,0 +1,4 @@
+version: "2"
+# Keep the repository's default lint suite independent of user-level configuration.
+linters:
+  default: standard
