@@ -189,15 +189,21 @@ func NewModule(cfg *moduleconfig.Config) (*Module, error) {
 		SourcePath: "crds",
 	}
 
-	// The grid operator, vendored as its generated platform base: the image comes
-	// through params.env and the namespace from the render.
+	// The grid operator, vendored as its generated platform base: the image and the
+	// namespace come through params.env. The render's namespace override does not reach the
+	// ServiceMonitor's selector or TLS server name, so the namespace must be set here too.
 	aiGridOperatorMI := odhtypes.ManifestInfo{
 		Path:       cfg.ManifestsPath,
 		ContextDir: "aigrid",
 		SourcePath: "overlays/openshift",
 	}
 
-	if err := odhdeploy.ApplyParams(aiGridOperatorMI.String(), "params.env", aiGridOperatorImageParamMap, nil); err != nil {
+	if err := odhdeploy.ApplyParams(
+		aiGridOperatorMI.String(),
+		"params.env",
+		aiGridOperatorImageParamMap,
+		map[string]string{"namespace": cfg.ApplicationsNamespace},
+	); err != nil {
 		return nil, fmt.Errorf("failed to update images on path %s: %w", aiGridOperatorMI, err)
 	}
 

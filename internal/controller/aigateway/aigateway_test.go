@@ -1093,6 +1093,29 @@ func TestInitializeManagedAIGrid(t *testing.T) {
 	g.Expect(rr.Manifests[1].String()).To(Equal("/manifests/aigrid/overlays/openshift"))
 }
 
+func TestNewModuleSetsAIGridNamespaceParam(t *testing.T) {
+	g := NewWithT(t)
+
+	dir := t.TempDir()
+	overlay := filepath.Join(dir, "aigrid", "overlays", "openshift")
+	g.Expect(os.MkdirAll(overlay, 0o750)).To(Succeed())
+	params := filepath.Join(overlay, "params.env")
+	g.Expect(os.WriteFile(params, []byte("grid-operator-image=img\nnamespace=grid-system\n"), 0o600)).To(Succeed())
+
+	_, err := NewModule(&moduleconfig.Config{
+		PlatformType:          "OpenDataHub",
+		PlatformVersion:       "1.0.0",
+		ManifestsPath:         dir,
+		ApplicationsNamespace: "apps-ns",
+	})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	got, err := os.ReadFile(filepath.Clean(params))
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(string(got)).To(ContainSubstring("namespace=apps-ns\n"))
+	g.Expect(string(got)).NotTo(ContainSubstring("grid-system"))
+}
+
 func TestInitializeRemovedAIGrid(t *testing.T) {
 	g := NewWithT(t)
 
