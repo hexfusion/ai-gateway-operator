@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1106,13 +1107,13 @@ func TestNewModuleSetsAIGridNamespaceParam(t *testing.T) {
 		PlatformType:          "OpenDataHub",
 		PlatformVersion:       "1.0.0",
 		ManifestsPath:         dir,
-		ApplicationsNamespace: "apps-ns",
+		ApplicationsNamespace: odhApplicationsNS,
 	})
 	g.Expect(err).NotTo(HaveOccurred())
 
 	got, err := os.ReadFile(filepath.Clean(params))
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(string(got)).To(ContainSubstring("namespace=apps-ns\n"))
+	g.Expect(string(got)).To(ContainSubstring("namespace=" + odhGridNS + "\n"))
 	g.Expect(string(got)).NotTo(ContainSubstring("grid-system"))
 }
 
@@ -1179,7 +1180,7 @@ func TestAIGridManifestsRenderOnlyCRDs(t *testing.T) {
 }
 
 // TestAIGridOperatorManifestsRender renders the vendored grid operator bundle the way
-// the kustomize action does: every namespaced object lands in the render namespace,
+// the kustomize action does: every namespaced object lands in the grid namespace,
 // the bindings follow, and the related-image override reaches the Deployment.
 func TestAIGridOperatorManifestsRender(t *testing.T) {
 	g := NewWithT(t)
@@ -1193,10 +1194,11 @@ func TestAIGridOperatorManifestsRender(t *testing.T) {
 		PlatformType:          "OpenDataHub",
 		PlatformVersion:       "1.0.0",
 		ManifestsPath:         manifestsPath,
-		ApplicationsNamespace: "test-ns",
+		ApplicationsNamespace: odhApplicationsNS,
 	})
 	g.Expect(err).NotTo(HaveOccurred())
-	objs, err := kustomize.NewEngine().Render(m.aiGridOperatorManifestInfo.String(), kustomize.WithNamespace("test-ns"))
+	mi := m.aiGridOperatorManifestInfo
+	objs, err := kustomize.NewEngine().Render(path.Join(mi.Path, mi.ContextDir, mi.SourcePath), kustomize.WithNamespace(mi.Namespace))
 	g.Expect(err).NotTo(HaveOccurred())
 
 	kinds := map[string]int{}
@@ -1204,7 +1206,7 @@ func TestAIGridOperatorManifestsRender(t *testing.T) {
 		kinds[o.GetKind()]++
 		if o.GetKind() == "Deployment" {
 			g.Expect(o.GetName()).To(Equal(aiGridOperatorDeploymentName))
-			g.Expect(o.GetNamespace()).To(Equal("test-ns"))
+			g.Expect(o.GetNamespace()).To(Equal(odhGridNS))
 			containers, _, err := unstructured.NestedSlice(o.Object, "spec", "template", "spec", "containers")
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(containers).To(HaveLen(1))
@@ -1214,7 +1216,7 @@ func TestAIGridOperatorManifestsRender(t *testing.T) {
 			subjects, _, err := unstructured.NestedSlice(o.Object, "subjects")
 			g.Expect(err).NotTo(HaveOccurred())
 			for _, subject := range subjects {
-				g.Expect(subject.(map[string]any)["namespace"]).To(Equal("test-ns"), o.GetName())
+				g.Expect(subject.(map[string]any)["namespace"]).To(Equal(odhGridNS), o.GetName())
 			}
 		}
 		if o.GetKind() == "Service" && o.GetName() != "grid-operator-metrics" {
@@ -1226,4 +1228,34 @@ func TestAIGridOperatorManifestsRender(t *testing.T) {
 	g.Expect(kinds["Deployment"]).To(Equal(1))
 	g.Expect(kinds["CustomResourceDefinition"]).To(BeZero())
 	g.Expect(kinds["Namespace"]).To(BeZero())
+}
+
+func TestDeriveGridNamespace(t *testing.T) {
+	tests := []struct{ appNs, want string }{
+		{odhApplicationsNS, odhGridNS},
+		{rhoaiApplicationsNS, rhoaiGridNS},
+		{"custom-ns", "custom-ns"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.appNs, func(t *testing.T) {
+			NewWithT(t).Expect(deriveGridNamespace(tt.appNs)).To(Equal(tt.want))
+		})
+	}
+}
+
+func TestInitializeManagedAIGridEnsuresNamespace(t *testing.T) {
+	g := NewWithT(t)
+
+	m := newTestModuleWithNamespace(t, rhoaiApplicationsNS)
+	obj := newTestAIGateway()
+	obj.Spec.AIGrid.ManagementState = managedState
+	rr := newTestRR(obj)
+	rr.Client = fake.NewClientBuilder().WithScheme(newTestScheme(t)).Build()
+
+	g.Expect(m.initialize(context.Background(), rr)).To(Succeed())
+	g.Expect(rr.Manifests).To(HaveLen(2))
+	g.Expect(rr.Manifests[1].Namespace).To(Equal(rhoaiGridNS))
+
+	ns := &corev1.Namespace{}
+	g.Expect(rr.Client.Get(context.Background(), types.NamespacedName{Name: rhoaiGridNS}, ns)).To(Succeed())
 }
