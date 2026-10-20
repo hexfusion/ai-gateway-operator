@@ -1093,10 +1093,8 @@ func TestInitializeManagedAIGrid(t *testing.T) {
 	g.Expect(rr.Manifests[0].ContextDir).To(Equal("aigrid"))
 	g.Expect(rr.Manifests[0].String()).To(Equal("/manifests/aigrid/crds"))
 
-	for _, name := range []string{"test-ns-ai-grid-operator", "test-ns-ai-grid"} {
-		ns := &corev1.Namespace{}
-		g.Expect(rr.Client.Get(context.Background(), types.NamespacedName{Name: name}, ns)).To(Succeed(), name)
-	}
+	ns := &corev1.Namespace{}
+	g.Expect(rr.Client.Get(context.Background(), types.NamespacedName{Name: "test-ns-ai-grid"}, ns)).To(Succeed())
 }
 
 func TestInitializeRemovedAIGrid(t *testing.T) {
@@ -1232,32 +1230,19 @@ func TestRenderAIGridOperatorOwnNamespace(t *testing.T) {
 	g.Expect(m.renderAIGridOperator(context.Background(), rr)).To(Succeed())
 	g.Expect(rr.Resources).NotTo(BeEmpty())
 
-	const operatorNs, gatewayNs = "test-ns-ai-grid-operator", "test-ns-ai-grid"
-	gatewayBindings := 0
 	for _, o := range rr.Resources {
-		g.Expect(o.GetLabels()).To(HaveKeyWithValue(labels.K8SCommon.PartOf, componentName), o.GetName())
-		switch {
-		case o.GetKind() == "RoleBinding" && o.GetNamespace() == gatewayNs:
-			g.Expect(o.GetName()).To(Equal(aiGridOperatorResourcesBinding))
-			gatewayBindings++
-		case o.GetNamespace() != "":
-			g.Expect(o.GetNamespace()).To(Equal(operatorNs), o.GetKind()+"/"+o.GetName())
+		if o.GetNamespace() != "" {
+			g.Expect(o.GetNamespace()).To(Equal("test-ns-ai-grid"), o.GetKind()+"/"+o.GetName())
 		}
+		g.Expect(o.GetLabels()).To(HaveKeyWithValue(labels.K8SCommon.PartOf, componentName), o.GetName())
 		if o.GetKind() == "ClusterRoleBinding" || o.GetKind() == "RoleBinding" {
 			subjects, _, err := unstructured.NestedSlice(o.Object, "subjects")
 			g.Expect(err).NotTo(HaveOccurred())
 			for _, subject := range subjects {
-				g.Expect(subject.(map[string]any)["namespace"]).To(Equal(operatorNs), o.GetName())
+				g.Expect(subject.(map[string]any)["namespace"]).To(Equal("test-ns-ai-grid"), o.GetName())
 			}
 		}
-		if o.GetKind() == "Deployment" {
-			containers, _, err := unstructured.NestedSlice(o.Object, "spec", "template", "spec", "containers")
-			g.Expect(err).NotTo(HaveOccurred())
-			env := containers[0].(map[string]any)["env"].([]any)
-			g.Expect(env).To(ContainElement(map[string]any{"name": "GRID_GATEWAY_NAMESPACE", "value": gatewayNs}))
-		}
 	}
-	g.Expect(gatewayBindings).To(Equal(1))
 }
 
 func TestRenderAIGridOperatorRemoved(t *testing.T) {
@@ -1277,10 +1262,6 @@ func TestDeriveAIGridNamespace(t *testing.T) {
 	g.Expect(deriveAIGridNamespace(odhApplicationsNS)).To(Equal("odh-ai-grid"))
 	g.Expect(deriveAIGridNamespace(rhoaiApplicationsNS)).To(Equal("redhat-ai-grid"))
 	g.Expect(deriveAIGridNamespace("custom-apps")).To(Equal("custom-apps-ai-grid"))
-	g.Expect(deriveAIGridOperatorNamespace(odhApplicationsNS)).To(Equal("odh-ai-grid-operator"))
-	g.Expect(deriveAIGridOperatorNamespace(rhoaiApplicationsNS)).To(Equal("redhat-ai-grid-operator"))
-	g.Expect(deriveAIGridOperatorNamespace("custom-apps")).To(Equal("custom-apps-ai-grid-operator"))
-	g.Expect(validation.IsDNS1123Label(deriveAIGridOperatorNamespace(strings.Repeat("a", 60)))).To(BeEmpty())
 
 	long := strings.Repeat("a", 60)
 	derived := deriveAIGridNamespace(long)
