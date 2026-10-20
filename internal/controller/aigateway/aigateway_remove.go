@@ -22,6 +22,7 @@ const (
 	aiGatewayControllerDeploymentName      = "ai-gateway-controller"
 	batchGatewayOperatorDeploymentName     = "llm-d-batch-gateway-operator"
 	aiGridOperatorDeploymentName           = "grid-operator"
+	aiGridOperatorResourcesBinding         = "grid-operator-resources"
 	maasTeardownRequestedKey               = "maas.opendatahub.io/teardown-requested"
 	maasTeardownCompletedKey               = "maas.opendatahub.io/teardown-completed"
 	maasCRDComponentLabelKey               = "app.kubernetes.io/component"
