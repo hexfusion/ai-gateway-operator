@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"os"
 	"sort"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -129,7 +131,16 @@ func deriveAIGridNamespace(appNs string) string {
 	case odhApplicationsNS:
 		return "odh-ai-grid"
 	default:
-		return appNs + "-ai-grid"
+		const suffix = "-ai-grid"
+		if len(appNs)+len(suffix) <= validation.DNS1123LabelMaxLength {
+			return appNs + suffix
+		}
+		// Too long for a namespace: shorten, with a hash of the full name to stay unique.
+		h := fnv.New32a()
+		_, _ = h.Write([]byte(appNs))
+		hash := fmt.Sprintf("%08x", h.Sum32())
+		base := strings.TrimRight(appNs[:validation.DNS1123LabelMaxLength-len(suffix)-len(hash)-1], "-")
+		return base + "-" + hash + suffix
 	}
 }
 

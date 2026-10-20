@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -1261,4 +1262,10 @@ func TestDeriveAIGridNamespace(t *testing.T) {
 	g.Expect(deriveAIGridNamespace(odhApplicationsNS)).To(Equal("odh-ai-grid"))
 	g.Expect(deriveAIGridNamespace(rhoaiApplicationsNS)).To(Equal("redhat-ai-grid"))
 	g.Expect(deriveAIGridNamespace("custom-apps")).To(Equal("custom-apps-ai-grid"))
+
+	long := strings.Repeat("a", 60)
+	derived := deriveAIGridNamespace(long)
+	g.Expect(validation.IsDNS1123Label(derived)).To(BeEmpty())
+	g.Expect(derived).To(HaveSuffix("-ai-grid"))
+	g.Expect(deriveAIGridNamespace(long + "b")).NotTo(Equal(deriveAIGridNamespace(long + "c")))
 }
