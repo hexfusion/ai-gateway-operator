@@ -227,6 +227,7 @@ func NewReconciler(
 			kustomize.WithLabel(labels.ODH.Component(componentName), labels.True),
 			kustomize.WithLabel(labels.K8SCommon.PartOf, componentName),
 		)).
+		WithAction(m.renderAIGridOperator).
 		WithAction(m.annotateResource).
 		WithAction(m.migrateSelector).
 		WithAction(deploy.NewAction(

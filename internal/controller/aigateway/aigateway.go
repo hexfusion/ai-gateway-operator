@@ -18,6 +18,7 @@ package aigateway
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -40,6 +41,8 @@ import (
 	"github.com/opendatahub-io/opendatahub-operator/v2/pkg/controller/conditions"
 	odhtypes "github.com/opendatahub-io/opendatahub-operator/v2/pkg/controller/types"
 	odhdeploy "github.com/opendatahub-io/opendatahub-operator/v2/pkg/deploy"
+	"github.com/opendatahub-io/opendatahub-operator/v2/pkg/manifests/kustomize"
+	"github.com/opendatahub-io/opendatahub-operator/v2/pkg/metadata/labels"
 
 	componentApi "github.com/opendatahub-io/ai-gateway-operator/api/components/v1alpha1"
 	moduleconfig "github.com/opendatahub-io/ai-gateway-operator/pkg/config"
@@ -115,6 +118,19 @@ var aiGatewayControllerImageParamMap = map[string]string{
 
 var aiGridOperatorImageParamMap = map[string]string{
 	"grid-operator-image": "RELATED_IMAGE_ODH_PRAXIS_AI_GRID_OPERATOR_IMAGE",
+}
+
+// deriveAIGridNamespace keeps the grid operator and its identity out of the applications
+// namespace, named beside the AI Gateway infrastructure namespace.
+func deriveAIGridNamespace(appNs string) string {
+	switch appNs {
+	case rhoaiApplicationsNS:
+		return "redhat-ai-grid"
+	case odhApplicationsNS:
+		return "odh-ai-grid"
+	default:
+		return appNs + "-ai-grid"
+	}
 }
 
 // aiGridCRDSuffix is the API group suffix shared by all AI Grid CRDs.
@@ -197,7 +213,12 @@ func NewModule(cfg *moduleconfig.Config) (*Module, error) {
 		SourcePath: "overlays/openshift",
 	}
 
-	if err := odhdeploy.ApplyParams(aiGridOperatorMI.String(), "params.env", aiGridOperatorImageParamMap, nil); err != nil {
+	if err := odhdeploy.ApplyParams(
+		aiGridOperatorMI.String(),
+		"params.env",
+		aiGridOperatorImageParamMap,
+		map[string]string{"namespace": deriveAIGridNamespace(cfg.ApplicationsNamespace)},
+	); err != nil {
 		return nil, fmt.Errorf("failed to update images on path %s: %w", aiGridOperatorMI, err)
 	}
 
@@ -234,7 +255,14 @@ func (m *Module) initialize(ctx context.Context, rr *odhtypes.ReconciliationRequ
 
 	// CRDs first, so the operator finds its kinds established.
 	if obj.Spec.AIGrid.ManagementState == managedState {
-		rr.Manifests = append(rr.Manifests, m.aiGridManifestInfo, m.aiGridOperatorManifestInfo)
+		if rr.Client == nil {
+			return errors.New("reconciliation client is nil")
+		}
+		gridNs := deriveAIGridNamespace(m.cfg.ApplicationsNamespace)
+		if err := ensureNamespace(ctx, rr.Client, gridNs); err != nil {
+			return fmt.Errorf("ensure namespace %s: %w", gridNs, err)
+		}
+		rr.Manifests = append(rr.Manifests, m.aiGridManifestInfo)
 	}
 
 	keepMaaSInstalled := obj.Spec.ModelsAsAService.ManagementState == managedState
@@ -796,4 +824,29 @@ func platformConfigMapPredicate(ns string) func(client.Object) bool {
 	return func(o client.Object) bool {
 		return o.GetName() == platformConfigName && o.GetNamespace() == ns
 	}
+}
+
+// renderAIGridOperator renders the grid operator into its own namespace. The shared render
+// forces the applications namespace, and ManifestInfo.Namespace breaks the render path.
+func (m *Module) renderAIGridOperator(_ context.Context, rr *odhtypes.ReconciliationRequest) error {
+	obj, ok := rr.Instance.(*componentApi.AIGateway)
+	if !ok {
+		return errors.New("instance is not an AIGateway")
+	}
+	if obj.Spec.AIGrid.ManagementState != managedState {
+		return nil
+	}
+
+	objs, err := kustomize.NewEngine().Render(
+		m.aiGridOperatorManifestInfo.String(),
+		kustomize.WithNamespace(deriveAIGridNamespace(m.cfg.ApplicationsNamespace)),
+		kustomize.WithLabel(labels.ODH.Component(componentName), labels.True),
+		kustomize.WithLabel(labels.K8SCommon.PartOf, componentName),
+	)
+	if err != nil {
+		return fmt.Errorf("render grid operator: %w", err)
+	}
+	rr.Resources = append(rr.Resources, objs...)
+
+	return nil
 }
