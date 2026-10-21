@@ -97,6 +97,10 @@ import (
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,resourceNames=grid-operator-crd;grid-operator-resources;grid-operator-metrics-scraper,verbs=get;update;patch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,resourceNames=grid-operator-crd;grid-operator-metrics-scraper,verbs=get;update;patch;delete
 // +kubebuilder:rbac:groups=grid.praxis.fast,resources=agenttoolproviders;gridnetworks;inferenceproviders,verbs=get;list;watch;patch
+// The operator applies grid-operator-crd, which grants create on gridnetworks, so it has
+// to hold that verb itself or the apply is refused as an escalation. Its own reconcile
+// never creates one, which is why this is separate from the read rule above.
+// +kubebuilder:rbac:groups=grid.praxis.fast,resources=gridnetworks,verbs=create
 // +kubebuilder:rbac:groups=grid.praxis.fast,resources=gridsites,verbs=get;list;watch;patch;create;update;delete
 // +kubebuilder:rbac:groups=grid.praxis.fast,resources=agenttoolproviders/status;gridnetworks/status;gridsites/status;inferenceproviders/status,verbs=get;patch
 // +kubebuilder:rbac:groups="",resources=serviceaccounts/token,resourceNames=grid-operator-metrics-scraper,verbs=create
