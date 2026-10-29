@@ -1884,12 +1884,27 @@ spec:
                 gridId:
                   default: ""
                   description: |-
-                    The grid this network belongs to, set once. Empty only while unset: an install with no
-                    operator config site section then mints one, and one with a site section holds the
-                    grid runtime until it is set. Moving to another grid means recreating the network.
+                    The grid this network belongs to, set once by bootstrap or its delivery automation.
+                    The operator waits until this is declared and never generates a grid ID.
+                    Moving to another grid means recreating the network.
                   maxLength: 63
                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?)?$
                   type: string
+                membership:
+                  description: |-
+                    Grid-wide membership source. When absent, the install's startup setting applies.
+                    A change causes the operator to restart gracefully into the declared mode.
+                  nullable: true
+                  properties:
+                    mode:
+                      description: 'Membership source. Local requires `signalTransport.mode: poll`.'
+                      enum:
+                        - Swim
+                        - Local
+                      type: string
+                  required:
+                    - mode
+                  type: object
                 metricsRefreshInterval:
                   description: |-
                     Maximum time between metric refreshes and score/ranking recalculation.
@@ -2197,6 +2212,8 @@ spec:
                   rule: has(self.placementPolicy) == (has(self.selectionPolicy) && self.selectionPolicy.mode == 'weightedRandom')
                 - message: gridId cannot change once set
                   rule: '!has(oldSelf.gridId) || oldSelf.gridId == '''' || (has(self.gridId) && self.gridId == oldSelf.gridId)'
+                - message: membership.mode Local requires signalTransport.mode poll
+                  rule: '!has(self.membership) || self.membership.mode != ''Local'' || (has(self.signalTransport) && self.signalTransport.mode == ''poll'')'
                 - message: set only `gatewayRefs` or `consumerGateways`, not both
                   rule: '!(has(self.gatewayRefs) && has(self.consumerGateways))'
             status:
