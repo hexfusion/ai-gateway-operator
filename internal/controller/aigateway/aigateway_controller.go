@@ -134,7 +134,7 @@ import (
 // +kubebuilder:rbac:groups=components.platform.opendatahub.io,resources=modelsasservices/status,verbs=get;patch;update
 // +kubebuilder:rbac:groups=config.openshift.io,resources=apiservers;authentications,verbs=get;list;watch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;delete;get;list;patch;update;watch
-// The Grid operator's Roles grant these, so this operator must hold them to apply those Roles.
+// Granted by the vendored Grid operator Roles; a creator must hold what its Roles grant.
 // +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=create;delete;get;list;update;watch
 // +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices/restricted,verbs=create
 // +kubebuilder:rbac:groups="",resources=serviceaccounts/token,resourceNames=grid-operator-metrics-scraper,verbs=create
